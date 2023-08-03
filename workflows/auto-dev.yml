@@ -1,0 +1,44 @@
+name: Auto-Dev-Deploy
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  deployToDev:    
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check label
+        run: |
+          if [ "${{ github.event.label.name }}" != "dev" ]; then
+            echo "Label is not 'dev', skipping deployment."
+            exit 0
+          else
+            echo "Label is 'dev', continuing deployment."
+          fi
+      
+      - name: Print branch name
+        id: get_branch_name
+        if: github.event_name == 'pull_request'
+        run: echo "::set-output name=BRANCH_NAME::$(echo ${GITHUB_HEAD_REF})"
+
+      - name: Get branch name
+        run: echo "The branch name is ${{ steps.get_branch_name.outputs.BRANCH_NAME }}"
+
+      - name: Merge Pull Request to dev        
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Action"
+          git fetch
+          git checkout dev
+          git pull
+          git merge origin/${{ steps.get_branch_name.outputs.BRANCH_NAME }} --no-commit --no-ff
+          git commit -m "Merge pull request #${{ github.event.pull_request.number }}"
+          git push origin dev
